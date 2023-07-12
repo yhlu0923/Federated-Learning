@@ -67,8 +67,8 @@ def simulate_federated_learning(num_clients, delay):
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     # Divide data among clients
-    trainloaders = torch.utils.data.random_split(trainset, [int(len(trainset)/num_clients)] * num_clients)
-
+    trainsets = torch.utils.data.random_split(trainset, [int(len(trainset)/num_clients)] * num_clients)
+    trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=16, shuffle=True) for i in range(num_clients)]
     # Have one test data for central model, no need to have local test data
     testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False)
 
@@ -83,23 +83,56 @@ def simulate_federated_learning(num_clients, delay):
     for client_model in clients:
         client_model.load_state_dict(net.state_dict())
 
+    num_epoch = 25
+    # TODO: Currently it is state_dict(), change it into gradients afterwards
+    gradients = [[] for _ in range(num_epoch)]
+
     # Lists to store accuracy losses
     accuracy_losses = []
 
-    for epoch in range(25):
-        for client in range(num_clients):
+    for epoch in range(num_epoch):
+        for client, client_model in enumerate(clients):
             # Train the model on each client's data
-            trainloader = torch.utils.data.DataLoader(trainloaders[client], batch_size=16, shuffle=True)
-            running_loss, accuracy = train(net, trainloader, criterion, optimizer)
+            trainloader = trainloaders[client]
 
-            # Simulate delayed gradients
-            if client == delay - 1:
-                delayed_running_loss = running_loss
-                delayed_accuracy = accuracy
+            # Set the model to training mode
+            client_model.train()
+
+            # Train the client model on the local data
+            for inputs, labels in trainloader:
+                optimizer.zero_grad()
+                outputs = net(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+
+        # Append gradients in to gradient list
+        delay_num = [0 for _ in range(num_clients)]
+        delay_num[0] = delay
+        for i, d in enumerate(delay_num):
+            gradients[epoch+d].append(clients[i].state_dict())
+
+        # Aggregate the client models' weights
+        global_state_dict = net.state_dict()
+        for param_name in global_state_dict:
+            global_state_dict[param_name] = sum(state_dict[param_name] for state_dict in gradients[epoch]) / len(gradients[epoch])
+
+        # Update the central model
+        net.load_state_dict(global_state_dict)
+
+        # Evaluate the model on the test set and calculate accuracy loss
+        net.eval()
+        total, correct = 0, 0
+        with torch.no_grad():
+            for inputs, labels in testloader:
+                outputs = net(inputs)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+        accuracy = correct / total
 
         # Record accuracy loss for each iteration
-        accuracy_loss = delayed_accuracy - accuracy
-        accuracy_losses.append(accuracy_loss)
+        accuracy_losses.append(1 - accuracy)
 
     return accuracy_losses
 
