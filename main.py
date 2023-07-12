@@ -64,8 +64,8 @@ def simulate_federated_learning(num_clients, delay):
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     # Divide data among clients
-    trainloaders = torch.utils.data.random_split(trainset, num_clients)
-    testloaders = torch.utils.data.random_split(testset, num_clients)
+    trainloaders = torch.utils.data.random_split(trainset, [int(len(trainset)/num_clients)] * num_clients)
+    testloaders = torch.utils.data.random_split(testset, [int(len(testset)/num_clients)] * num_clients)
 
     # Create the network and optimizer
     net = Net()
