@@ -50,12 +50,13 @@ def simulate_federated_learning(num_clients, delay):
 
     # Create the network and optimizer
     # Central model
-    net = Net()
-    criterion = nn.CrossEntropyLoss()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    net = Net().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     # Create a copy of the model for each client
-    clients = [Net() for _ in range(num_clients)]
+    clients = [Net().to(device) for _ in range(num_clients)]
     for client_model in clients:
         client_model.load_state_dict(net.state_dict())
 
@@ -78,6 +79,9 @@ def simulate_federated_learning(num_clients, delay):
             with tqdm(total=len(trainloader), ncols=80) as progress_bar:
                 # Train the client model on the local data
                 for inputs, labels in trainloader:
+                    inputs = inputs.to(device)
+                    labels = labels.to(device)
+
                     optimizer.zero_grad()
                     outputs = net(inputs)
                     loss = criterion(outputs, labels)
@@ -92,9 +96,9 @@ def simulate_federated_learning(num_clients, delay):
         delay_num[0] = delay
         for i, d in enumerate(delay_num):
             target_slot_num = epoch + d
-            # Dispose gradients we get if it surpass the len of our list
+            # Dispose gradients we get if it surpasses the length of our list
             if target_slot_num < len(gradients):
-                gradients[target_slot_num].append(clients[i].state_dict())
+                gradients[target_slot_num].append(clients[i].state_dict().copy())
 
         # Aggregate the client models' weights
         global_state_dict = net.state_dict()
@@ -102,13 +106,17 @@ def simulate_federated_learning(num_clients, delay):
             global_state_dict[param_name] = sum(state_dict[param_name] for state_dict in gradients[epoch]) / len(gradients[epoch])
 
         # Update the central model
-        net.load_state_dict(global_state_dict)
+        net.load_state_dict(global_state_dict, strict=False)
+        net.to(device)
 
         # Evaluate the model on the test set and calculate accuracy loss
         net.eval()
         total, correct = 0, 0
         with torch.no_grad():
             for inputs, labels in testloader:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+
                 outputs = net(inputs)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
