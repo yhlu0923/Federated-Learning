@@ -32,11 +32,14 @@ class Net(nn.Module):
 
 # Function to train the model
 def train(net, dataloader, criterion, optimizer):
+    # Set the model to training mode
     net.train()
+
     running_loss = 0.0
     total_samples = 0
     correct_predictions = 0
 
+    # Train the client model on the local data
     for inputs, labels in dataloader:
         optimizer.zero_grad()
         outputs = net(inputs)
@@ -65,12 +68,20 @@ def simulate_federated_learning(num_clients, delay):
 
     # Divide data among clients
     trainloaders = torch.utils.data.random_split(trainset, [int(len(trainset)/num_clients)] * num_clients)
-    testloaders = torch.utils.data.random_split(testset, [int(len(testset)/num_clients)] * num_clients)
+
+    # Have one test data for central model, no need to have local test data
+    testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False)
 
     # Create the network and optimizer
+    # Central model
     net = Net()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+    # Create a copy of the model for each client
+    clients = [Net() for _ in range(num_clients)]
+    for client_model in clients:
+        client_model.load_state_dict(net.state_dict())
 
     # Lists to store accuracy losses
     accuracy_losses = []
@@ -110,4 +121,3 @@ plt.ylabel('Accuracy Loss')
 plt.title('Accuracy Loss in Federated Learning with Delayed Gradients')
 plt.legend()
 plt.show()
-
