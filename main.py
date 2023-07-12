@@ -136,10 +136,10 @@ def simulate_federated_learning(num_clients, delay):
     return accuracy_losses
 
 # Simulate federated learning with different delays
-num_epoch = 10
+num_epoch = 25
 batch_size = 256
 num_clients = 5
-delays = [1, 5]
+delays = [1, 2, 3, 4, 5]
 
 accuracy_losses_all_delays = []
 for delay in delays:
