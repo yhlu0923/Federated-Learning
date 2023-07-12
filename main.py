@@ -5,6 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
@@ -30,30 +31,30 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-# Function to train the model
-def train(net, dataloader, criterion, optimizer):
-    # Set the model to training mode
-    net.train()
+# # Function to train the model
+# def train(net, dataloader, criterion, optimizer):
+#     # Set the model to training mode
+#     net.train()
 
-    running_loss = 0.0
-    total_samples = 0
-    correct_predictions = 0
+#     running_loss = 0.0
+#     total_samples = 0
+#     correct_predictions = 0
 
-    # Train the client model on the local data
-    for inputs, labels in dataloader:
-        optimizer.zero_grad()
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+#     # Train the client model on the local data
+#     for inputs, labels in dataloader:
+#         optimizer.zero_grad()
+#         outputs = net(inputs)
+#         loss = criterion(outputs, labels)
+#         loss.backward()
+#         optimizer.step()
 
-        running_loss += loss.item() * inputs.size(0)
-        _, predicted = torch.max(outputs, 1)
-        total_samples += labels.size(0)
-        correct_predictions += (predicted == labels).sum().item()
+#         running_loss += loss.item() * inputs.size(0)
+#         _, predicted = torch.max(outputs, 1)
+#         total_samples += labels.size(0)
+#         correct_predictions += (predicted == labels).sum().item()
 
-    accuracy = correct_predictions / total_samples
-    return running_loss, accuracy
+#     accuracy = correct_predictions / total_samples
+#     return running_loss, accuracy
 
 # Function to simulate federated learning with delayed gradients
 def simulate_federated_learning(num_clients, delay):
@@ -98,13 +99,18 @@ def simulate_federated_learning(num_clients, delay):
             # Set the model to training mode
             client_model.train()
 
-            # Train the client model on the local data
-            for inputs, labels in trainloader:
-                optimizer.zero_grad()
-                outputs = net(inputs)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
+            # Visualize the training step
+            with tqdm(total=len(trainloader), ncols=80) as progress_bar:
+                # Train the client model on the local data
+                for inputs, labels in trainloader:
+                    optimizer.zero_grad()
+                    outputs = net(inputs)
+                    loss = criterion(outputs, labels)
+                    loss.backward()
+                    optimizer.step()
+
+                    # Update tqdm bar
+                    progress_bar.update(1)
 
         # Append gradients in to gradient list
         delay_num = [0 for _ in range(num_clients)]
