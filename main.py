@@ -43,7 +43,9 @@ def simulate_federated_learning(num_clients, delay):
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     # Divide data among clients
-    trainsets = torch.utils.data.random_split(trainset, [int(len(trainset)/num_clients)] * num_clients)
+    split_sizes = [len(trainset) // num_clients] * num_clients
+    split_sizes[-1] = len(trainset) - sum(split_sizes[:-1])
+    trainsets = torch.utils.data.random_split(trainset, split_sizes)
     trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=16, shuffle=True) for i in range(num_clients)]
     # Have one test data for central model, no need to have local test data
     testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False)
