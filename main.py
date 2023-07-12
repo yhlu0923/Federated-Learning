@@ -60,7 +60,7 @@ def simulate_federated_learning(num_clients, delay):
     for client_model in clients:
         client_model.load_state_dict(net.state_dict())
 
-    num_epoch = 25
+    num_epoch = 10
     # TODO: Currently it is state_dict(), change it into gradients afterwards
     gradients = [[] for _ in range(num_epoch)]
 
@@ -130,7 +130,7 @@ def simulate_federated_learning(num_clients, delay):
 
 # Simulate federated learning with different delays
 num_clients = 5
-delays = [1, 2, 3, 4, 5]
+delays = [1, 5]
 
 accuracy_losses_all_delays = []
 for delay in delays:
