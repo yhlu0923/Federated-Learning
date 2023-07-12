@@ -47,7 +47,6 @@ def simulate_federated_learning(num_clients, delay):
     split_sizes[-1] = len(trainset) - sum(split_sizes[:-1])
     trainsets = torch.utils.data.random_split(trainset, split_sizes)
     trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=batch_size, shuffle=True) for i in range(num_clients)]
-    # Have one test data for central model, no need to have local test data
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 
     # Create the network and optimizer
@@ -59,8 +58,6 @@ def simulate_federated_learning(num_clients, delay):
 
     # Create a copy of the model for each client
     clients = [Net().to(device) for _ in range(num_clients)]
-    for client_model in clients:
-        client_model.load_state_dict(net.state_dict())
 
     gradients = [[] for _ in range(num_epoch)]
 
@@ -68,6 +65,9 @@ def simulate_federated_learning(num_clients, delay):
     accuracy_losses = []
 
     for epoch in range(num_epoch):
+        for client_model in clients:
+            client_model.load_state_dict(net.state_dict())
+        
         for client, client_model in enumerate(clients):
             # Train the model on each client's data
             trainloader = trainloaders[client]
