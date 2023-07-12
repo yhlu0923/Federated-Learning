@@ -96,14 +96,21 @@ def simulate_federated_learning(num_clients, delay):
         delay_num[0] = delay
         for i, d in enumerate(delay_num):
             target_slot_num = epoch + d
-            # Dispose gradients we get if it surpasses the length of our list
             if target_slot_num < len(gradients):
-                gradients[target_slot_num].append(clients[i].state_dict().copy())
+                client_model = clients[i]
+                for param_name, param in client_model.named_parameters():
+                    if param.grad is not None:
+                        gradients[target_slot_num].append(param.grad.clone())
 
-        # Aggregate the client models' weights
+        # Aggregate the gradients of client models
         global_state_dict = net.state_dict()
-        for param_name in global_state_dict:
-            global_state_dict[param_name] = sum(state_dict[param_name] for state_dict in gradients[epoch]) / len(gradients[epoch])
+        for param_name, param in global_state_dict.items():
+            if param.requires_grad:
+                gradients_sum = sum(gradients[epoch][i][param_name] for i in range(len(gradients[epoch])))
+                param.grad = gradients_sum / num_clients
+
+        # Update the central model with aggregated gradients
+        optimizer.step()
 
         # Update the central model
         net.load_state_dict(global_state_dict, strict=False)
