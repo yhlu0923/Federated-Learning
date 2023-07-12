@@ -76,7 +76,7 @@ def simulate_federated_learning(num_clients, delay):
             client_model.train()
 
             # Visualize the training step
-            with tqdm(total=len(trainloader), ncols=80) as progress_bar:
+            with tqdm(total=len(trainloader), ncols=80, desc=f"Epoch {epoch+1}/{num_epoch}", postfix=f"Client {client+1}/{num_clients}") as progress_bar:
                 # Train the client model on the local data
                 for inputs, labels in trainloader:
                     inputs = inputs.to(device)
