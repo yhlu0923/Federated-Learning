@@ -46,9 +46,9 @@ def simulate_federated_learning(num_clients, delay):
     split_sizes = [len(trainset) // num_clients] * num_clients
     split_sizes[-1] = len(trainset) - sum(split_sizes[:-1])
     trainsets = torch.utils.data.random_split(trainset, split_sizes)
-    trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=16, shuffle=True) for i in range(num_clients)]
+    trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=batch_size, shuffle=True) for i in range(num_clients)]
     # Have one test data for central model, no need to have local test data
-    testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 
     # Create the network and optimizer
     # Central model
@@ -62,8 +62,6 @@ def simulate_federated_learning(num_clients, delay):
     for client_model in clients:
         client_model.load_state_dict(net.state_dict())
 
-    num_epoch = 10
-    # TODO: Currently it is state_dict(), change it into gradients afterwards
     gradients = [[] for _ in range(num_epoch)]
 
     # Lists to store accuracy losses
@@ -138,6 +136,8 @@ def simulate_federated_learning(num_clients, delay):
     return accuracy_losses
 
 # Simulate federated learning with different delays
+num_epoch = 10
+batch_size = 256
 num_clients = 5
 delays = [1, 5]
 
@@ -149,7 +149,7 @@ for delay in delays:
 # Plot the accuracy loss for each delay
 plt.figure(figsize=(10, 6))
 for i, delay in enumerate(delays):
-    plt.plot(range(1, 26), accuracy_losses_all_delays[i], label=f'Delay={delay}')
+    plt.plot(range(0, num_epoch), accuracy_losses_all_delays[i], label=f'Delay={delay}')
 plt.xlabel('Iteration')
 plt.ylabel('Accuracy Loss')
 plt.title('Accuracy Loss in Federated Learning with Delayed Gradients')
