@@ -31,31 +31,6 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-# # Function to train the model
-# def train(net, dataloader, criterion, optimizer):
-#     # Set the model to training mode
-#     net.train()
-
-#     running_loss = 0.0
-#     total_samples = 0
-#     correct_predictions = 0
-
-#     # Train the client model on the local data
-#     for inputs, labels in dataloader:
-#         optimizer.zero_grad()
-#         outputs = net(inputs)
-#         loss = criterion(outputs, labels)
-#         loss.backward()
-#         optimizer.step()
-
-#         running_loss += loss.item() * inputs.size(0)
-#         _, predicted = torch.max(outputs, 1)
-#         total_samples += labels.size(0)
-#         correct_predictions += (predicted == labels).sum().item()
-
-#     accuracy = correct_predictions / total_samples
-#     return running_loss, accuracy
-
 # Function to simulate federated learning with delayed gradients
 def simulate_federated_learning(num_clients, delay):
     # Load CIFAR-10 dataset
