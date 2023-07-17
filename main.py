@@ -31,14 +31,14 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-# Function to simulate federated learning with delayed gradients
-def simulate_federated_learning(num_clients, delay):
+def get_data_loaders(num_clients, batch_size):
     # Load CIFAR-10 dataset
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
+    # Download dataset
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 
@@ -46,8 +46,31 @@ def simulate_federated_learning(num_clients, delay):
     split_sizes = [len(trainset) // num_clients] * num_clients
     split_sizes[-1] = len(trainset) - sum(split_sizes[:-1])
     trainsets = torch.utils.data.random_split(trainset, split_sizes)
+
+    # Each trainloader represent a dataset for each client
     trainloaders = [torch.utils.data.DataLoader(trainsets[i], batch_size=batch_size, shuffle=True) for i in range(num_clients)]
+    # Only one testing set for central model is needed
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
+    return trainloaders, testloader
+
+def evaluate_model(net, testloader, device):
+    net.to(device)
+    net.eval()
+    total, correct = 0, 0
+    with torch.no_grad():
+        for inputs, labels in testloader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
+            outputs = net(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    accuracy = correct / total
+    return accuracy
+
+def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
+    trainloaders, testloader = get_data_loaders(num_clients, batch_size)
 
     # Create the network and optimizer
     # Central model
@@ -67,7 +90,7 @@ def simulate_federated_learning(num_clients, delay):
     for epoch in range(num_epoch):
         for client_model in clients:
             client_model.load_state_dict(net.state_dict())
-        
+
         for client, client_model in enumerate(clients):
             # Train the model on each client's data
             trainloader = trainloaders[client]
@@ -114,23 +137,10 @@ def simulate_federated_learning(num_clients, delay):
 
         # Update the central model
         net.load_state_dict(global_state_dict, strict=False)
-        net.to(device)
 
-        # Evaluate the model on the test set and calculate accuracy loss
-        net.eval()
-        total, correct = 0, 0
-        with torch.no_grad():
-            for inputs, labels in testloader:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                outputs = net(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-        accuracy = correct / total
-
-        # Record accuracy loss for each iteration
+        # Evaluate the model on the test set and calculate accuracy
+        accuracy = evaluate_model(net, testloader, device)
+        # Record accuracy for each iteration
         accuracies.append(accuracy)
 
     return accuracies
@@ -143,7 +153,7 @@ delays = [1, 2, 3, 4, 5]
 
 accuracy_losses_all_delays = []
 for delay in delays:
-    accuracy_losses = simulate_federated_learning(num_clients, delay)
+    accuracy_losses = simulate_federated_learning(num_clients, delay, num_epoch, batch_size)
     accuracy_losses_all_delays.append(accuracy_losses)
 
 # Plot the accuracy loss for each delay
