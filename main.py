@@ -61,8 +61,8 @@ def simulate_federated_learning(num_clients, delay):
 
     gradients = [[] for _ in range(num_epoch)]
 
-    # Lists to store accuracy losses
-    accuracy_losses = []
+    # Lists to store accuracies
+    accuracies = []
 
     for epoch in range(num_epoch):
         for client_model in clients:
@@ -131,9 +131,9 @@ def simulate_federated_learning(num_clients, delay):
         accuracy = correct / total
 
         # Record accuracy loss for each iteration
-        accuracy_losses.append(1 - accuracy)
+        accuracies.append(accuracy)
 
-    return accuracy_losses
+    return accuracies
 
 # Simulate federated learning with different delays
 num_epoch = 25
