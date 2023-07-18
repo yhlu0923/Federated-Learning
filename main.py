@@ -223,17 +223,17 @@ batch_size = 256
 num_clients = 5
 delays = [1, 2, 3, 4, 5]
 
-accuracy_losses_all_delays = []
+accuracy_all_delays = []
 for delay in delays:
-    accuracy_losses = simulate_federated_learning(num_clients, delay, num_epoch, batch_size)
-    accuracy_losses_all_delays.append(accuracy_losses)
+    accuracies = simulate_federated_learning(num_clients, delay, num_epoch, batch_size)
+    accuracy_all_delays.append(accuracies)
 
 # Plot the accuracy loss for each delay
 plt.figure(figsize=(10, 6))
 for i, delay in enumerate(delays):
-    plt.plot(range(0, num_epoch), accuracy_losses_all_delays[i], label=f'Delay={delay}')
+    plt.plot(range(0, num_epoch), accuracy_all_delays[i], label=f'Delay={delay}')
 plt.xlabel('Iteration')
-plt.ylabel('Accuracy Loss')
-plt.title('Accuracy Loss in Federated Learning with Delayed Gradients')
+plt.ylabel('Accuracy')
+plt.title('Accuracy in Federated Learning with Delayed Gradients')
 plt.legend()
 plt.show()
