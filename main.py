@@ -33,9 +33,9 @@ class Net(nn.Module):
         return x
     
 class Clients:
-    def __init__(self, num_clients):
+    def __init__(self, num_clients, base_model):
         self.num_clients = num_clients
-        self.clients = [Net() for _ in range(num_clients)]
+        self.clients = [copy.deepcopy(base_model) for _ in range(num_clients)]
         self.optimizers = [optim.SGD(client.parameters(), lr=0.001, momentum=0.9) for client in self.clients]
         self.trainloaders = None
 
@@ -51,7 +51,7 @@ class Clients:
     def set_trainloaders(self, trainloaders):
         assert num_clients == len(trainloaders)
         self.trainloaders = trainloaders
-    
+
     # def set_client(self, client_index, state_dict):
     #     self.clients[client_index].load_state_dict(state_dict)
 
@@ -100,11 +100,11 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
     # Central model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = Net().to(device)
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion = nn.CrossEntropyLoss()
     optimizer_central_model = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     # Create a model and an optimizer for each client
-    clients = Clients(num_clients)
+    clients = Clients(num_clients, net)
     clients.set_trainloaders(trainloaders)
 
     # Record the gradient difference here
@@ -115,7 +115,6 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
 
     for epoch in range(num_epoch):
 
-
         # Distribute central model gradients to each remote model
         for idx in range(num_clients):
             clients.get_client(idx).load_state_dict(net.state_dict())
@@ -124,7 +123,7 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
         for idx in range(num_clients):
             # Train the model on each client's data
             trainloader = clients.get_trainloader(idx)
-            client_model = clients.get_client(idx)
+            client_model = clients.get_client(idx).to(device)
             optimizer = clients.get_optimizer(idx)
 
             initial_state_dict = copy.deepcopy(client_model.state_dict())
@@ -136,38 +135,36 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
             with tqdm(total=len(trainloader), ncols=80, desc=f"Epoch {epoch+1}/{num_epoch}", postfix=f"Client {idx+1}/{num_clients}") as progress_bar:
                 # Train the client model on the local data
                 for inputs, labels in trainloader:
-                    inputs = inputs.to(device)
-                    labels = labels.to(device)
-
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    # zero the parameter gradients
                     optimizer.zero_grad()
-                    outputs = net(inputs)
+                    outputs = client_model(inputs)      # TRAINING MUST BE DONE ON CLIENTS
                     loss = criterion(outputs, labels)
                     loss.backward()
+                    
+                    # print('Grad:', client_model.conv1.weight.grad)
                     optimizer.step()
 
                     # Update tqdm bar
                     progress_bar.update(1)
-
-            final_state_dict = copy.deepcopy(client_model.state_dict())
-
+            final_state_dict = copy.deepcopy(client_model.state_dict()) #.copy()
+            # print(final_state_dict)
             # Iterate over the model's parameters and calculate the difference in gradients
             gradient_difference = {}
             for name, param in final_state_dict.items():
-                if param.requires_grad:
-                    gradient_difference[name] = param - initial_state_dict[name]
-
+                # print(name)
+                # print(param.requires_grad)
+                # if param.requires_grad:
+                #     print('inside')
+                gradient_difference[name] = param - initial_state_dict[name]
             # Print or use the gradient difference as needed
-            print(gradient_difference)
-
-
             # Compare the state dictionaries
             same_state = True
             for name, param in initial_state_dict.items():
-                if param.requires_grad:
-                    if not torch.equal(param, final_state_dict[name]):
-                        same_state = False
-                        break
-
+                # if param.requires_grad:
+                if not torch.equal(param, final_state_dict[name]):
+                    same_state = False
+                    break
             if same_state:
                 print("Same")
             else:
@@ -193,7 +190,7 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
         delay_num[0] = delay
         for i, d in enumerate(delay_num):
             target_slot_num = epoch + d
-            # If the epoch plus delay is out of training stage, 
+            # If the epoch plus delay is out of training stage
             if target_slot_num < len(gradients):
                 client_model = clients.get_client(i)
                 for param_name, param in client_model.named_parameters():
