@@ -14,6 +14,17 @@ from datetime import datetime
 torch.manual_seed(42)
 np.random.seed(42)
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Simulate federated learning with different delays')
+    parser.add_argument('--pic_name', type=str, default='pic_train', help='Name of the picture')
+    parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
+    parser.add_argument('--num_clients', type=int, default=5, help='Number of clients')
+    parser.add_argument('--num_epoch', type=int, default=25, help='Number of epochs')
+    parser.add_argument('--delays', type=int, nargs='+', default=[1, 5], help='List of delays')
+    args = parser.parse_args()
+    return args
+
+
 # Define the CIFAR-10 network architecture
 class Net(nn.Module):
     def __init__(self):
@@ -33,7 +44,8 @@ class Net(nn.Module):
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-    
+
+
 class Clients:
     def __init__(self, num_clients, base_model):
         self.num_clients = num_clients
@@ -53,6 +65,7 @@ class Clients:
     def set_trainloaders(self, trainloaders):
         assert self.num_clients == len(trainloaders)
         self.trainloaders = trainloaders
+
 
 def get_data_loaders(num_clients, batch_size):
     # Load CIFAR-10 dataset
@@ -76,6 +89,7 @@ def get_data_loaders(num_clients, batch_size):
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
     return trainloaders, testloader
 
+
 def evaluate_model(net, testloader, device):
     net.to(device)
     net.eval()
@@ -91,6 +105,7 @@ def evaluate_model(net, testloader, device):
             correct += (predicted == labels).sum().item()
     accuracy = correct / total
     return accuracy
+
 
 def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
     trainloaders, testloader = get_data_loaders(num_clients, batch_size)
@@ -188,25 +203,8 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
 
     return accuracies
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Simulate federated learning with different delays')
-    parser.add_argument('--pic_name', type=str, default='pic_train', help='Name of the picture')
-    parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
-    parser.add_argument('--num_clients', type=int, default=5, help='Number of clients')
-    parser.add_argument('--num_epoch', type=int, default=25, help='Number of epochs')
-    parser.add_argument('--delays', type=int, nargs='+', default=[1, 5], help='List of delays')
-    args = parser.parse_args()
-    return args
 
-def main():
-    args = parse_args()
-
-    # Simulate federated learning with different delays
-    accuracy_all_delays = []
-    for delay in args.delays:
-        accuracies = simulate_federated_learning(args.num_clients, delay, args.num_epoch, args.batch_size)
-        accuracy_all_delays.append(accuracies)
-
+def plot_and_save_img(args, accuracy_all_delays):
     # Plot the accuracy for each delay
     plt.figure(figsize=(10, 6))
     for i, delay in enumerate(args.delays):
@@ -224,6 +222,19 @@ def main():
     pic_name = f"{args.pic_name}-num_client_{args.num_clients}-delay_{args.delays}-{current_time}.png"
     plt.savefig(pic_name)  # Saving the plot as an image
     plt.show()
+
+
+def main():
+    args = parse_args()
+
+    # Simulate federated learning with different delays
+    accuracy_all_delays = []
+    for delay in args.delays:
+        accuracies = simulate_federated_learning(args.num_clients, delay, args.num_epoch, args.batch_size)
+        accuracy_all_delays.append(accuracies)
+
+    plot_and_save_img(args, accuracy_all_delays)
+
 
 if __name__ == '__main__':
     main()
