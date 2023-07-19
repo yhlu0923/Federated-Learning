@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import copy
+import argparse
+import matplotlib.pyplot as plt
+from datetime import datetime
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
@@ -49,7 +52,7 @@ class Clients:
         return self.trainloaders[client_index]
 
     def set_trainloaders(self, trainloaders):
-        assert num_clients == len(trainloaders)
+        assert self.num_clients == len(trainloaders)
         self.trainloaders = trainloaders
 
 def get_data_loaders(num_clients, batch_size):
@@ -96,6 +99,7 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
     # Create the network and optimizer
     # Central model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Using GPU during training")
     net = Net().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer_central_model = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
@@ -180,28 +184,44 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
 
         # Evaluate the model on the test set and calculate accuracy
         accuracy = evaluate_model(net, testloader, device)
+        print(f'Accuracy: {accuracy}')
         # Record accuracy for each iteration
         accuracies.append(accuracy)
 
     return accuracies
 
-# Simulate federated learning with different delays
-num_epoch = 25
-batch_size = 256
-num_clients = 5
-delays = [1, 2, 3, 4, 5]
+def parse_args():
+    parser = argparse.ArgumentParser(description='Simulate federated learning with different delays')
+    parser.add_argument('--pic_name', type=str, default='pic_train', help='Name of the picture')
+    parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
+    parser.add_argument('--num_clients', type=int, default=5, help='Number of clients')
+    parser.add_argument('--num_epoch', type=int, default=25, help='Number of epochs')
+    parser.add_argument('--delays', type=int, nargs='+', default=[1, 5], help='List of delays')
+    args = parser.parse_args()
+    return args
 
-accuracy_all_delays = []
-for delay in delays:
-    accuracies = simulate_federated_learning(num_clients, delay, num_epoch, batch_size)
-    accuracy_all_delays.append(accuracies)
+def main():
+    args = parse_args()
 
-# Plot the accuracy loss for each delay
-plt.figure(figsize=(10, 6))
-for i, delay in enumerate(delays):
-    plt.plot(range(0, num_epoch), accuracy_all_delays[i], label=f'Delay={delay}')
-plt.xlabel('Iteration')
-plt.ylabel('Accuracy')
-plt.title('Accuracy in Federated Learning with Delayed Gradients')
-plt.legend()
-plt.show()
+    # Simulate federated learning with different delays
+    accuracy_all_delays = []
+    for delay in args.delays:
+        accuracies = simulate_federated_learning(args.num_clients, delay, args.num_epoch, args.batch_size)
+        accuracy_all_delays.append(accuracies)
+
+    # Plot the accuracy for each delay
+    plt.figure(figsize=(10, 6))
+    for i, delay in enumerate(args.delays):
+        plt.plot(range(0, args.num_epoch), accuracy_all_delays[i], label=f'Delay={delay}')
+    plt.xlabel('Iteration')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy in Federated Learning with Delayed Gradients')
+    plt.legend()
+    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+    pic_name = f"{args.pic_name}-num_client_{args.num_clients}-delay_{args.delays}-{current_time}.png"
+    plt.savefig(pic_name)  # Saving the plot as an image
+    plt.show()
+
+# python main.py --pic_name=pic_train --batch_size=256 --num_clients=5 --delays 1 2 3 4 5
+if __name__ == '__main__':
+    main()
