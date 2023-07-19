@@ -170,9 +170,10 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
         # Get the base model
         global_state_dict = net.state_dict()
         # Add each gradient_difference to the base model
+        # TODO: Play with delay. e.g. the delay gradients will have lower effect
         for gradient_difference in list_gradient_difference:
             for name, param in global_state_dict.items():
-                global_state_dict[name] = param + gradient_difference[name]
+                global_state_dict[name] = param + gradient_difference[name] / num_clients
 
         # Update the central model
         net.load_state_dict(global_state_dict, strict=False)
