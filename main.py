@@ -52,9 +52,6 @@ class Clients:
         assert num_clients == len(trainloaders)
         self.trainloaders = trainloaders
 
-    # def set_client(self, client_index, state_dict):
-    #     self.clients[client_index].load_state_dict(state_dict)
-
 def get_data_loaders(num_clients, batch_size):
     # Load CIFAR-10 dataset
     transform = transforms.Compose([
@@ -126,6 +123,7 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
             client_model = clients.get_client(idx).to(device)
             optimizer = clients.get_optimizer(idx)
 
+            # Record the initial state dict to calculate the difference
             initial_state_dict = copy.deepcopy(client_model.state_dict())
 
             # Set the model to training mode
@@ -150,62 +148,31 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
             final_state_dict = copy.deepcopy(client_model.state_dict()) #.copy()
             # print(final_state_dict)
             # Iterate over the model's parameters and calculate the difference in gradients
+
+            # Calculate the difference in gradients (weights)
             gradient_difference = {}
             for name, param in final_state_dict.items():
-                # print(name)
-                # print(param.requires_grad)
-                # if param.requires_grad:
-                #     print('inside')
                 gradient_difference[name] = param - initial_state_dict[name]
-            # Print or use the gradient difference as needed
-            # Compare the state dictionaries
-            same_state = True
-            for name, param in initial_state_dict.items():
-                # if param.requires_grad:
-                if not torch.equal(param, final_state_dict[name]):
-                    same_state = False
-                    break
-            if same_state:
-                print("Same")
-            else:
-                print("Different")
 
-        # # Calculate the difference in gradients (weights)
-        # for idx in range(num_clients):
-        #     initial_state_dict = net.state_dict()
-        #     final_state_dict = clients.get_client(idx).state_dict()
+            # Append gradients in to gradient list
+            # Experimetal stage: Make only the last client has delay
+            delay_num = [0 for _ in range(num_clients)]
+            delay_num[0] = delay
 
-        #     # Iterate over the model's parameters and calculate the difference in gradients
-        #     gradient_difference = {}
-        #     for name, param in final_state_dict.items():
-        #         if param.requires_grad:
-        #             gradient_difference[name] = param - initial_state_dict[name]
-
-        #     # Print or use the gradient difference as needed
-        #     print(gradient_difference)
-
-        # Append gradients in to gradient list
-        # Experimetal stage: Make only the last client has delay
-        delay_num = [0 for _ in range(num_clients)]
-        delay_num[0] = delay
-        for i, d in enumerate(delay_num):
-            target_slot_num = epoch + d
+            target_slot_num = epoch + delay_num[idx]
             # If the epoch plus delay is out of training stage
             if target_slot_num < len(gradients):
-                client_model = clients.get_client(i)
-                for param_name, param in client_model.named_parameters():
-                    if param.grad is not None:
-                        gradients[target_slot_num].append(param.grad.clone())
+                gradients[target_slot_num].append(gradient_difference)
 
         # Aggregate the gradients of client models
+        # Get the list of gradient difference for this epoch
+        list_gradient_difference = gradients[epoch]
+        # Get the base model
         global_state_dict = net.state_dict()
-        for param_name, param in global_state_dict.items():
-            if param.requires_grad:
-                gradients_sum = sum(gradients[epoch][i][param_name] for i in range(len(gradients[epoch])))
-                param.grad = gradients_sum / num_clients
-
-        # Update the central model with aggregated gradients
-        optimizer.step()
+        # Add each gradient_difference to the base model
+        for gradient_difference in list_gradient_difference:
+            for name, param in global_state_dict.items():
+                global_state_dict[name] = param + gradient_difference[name]
 
         # Update the central model
         net.load_state_dict(global_state_dict, strict=False)
