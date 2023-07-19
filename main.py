@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import copy
 import argparse
-import matplotlib.pyplot as plt
 from datetime import datetime
 
 # Set random seed for reproducibility
@@ -103,13 +102,12 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
         print("Using GPU during training")
     net = Net().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer_central_model = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     # Create a model and an optimizer for each client
     clients = Clients(num_clients, net)
     clients.set_trainloaders(trainloaders)
 
-    # Record the gradient difference here
+    # Record the gradient difference
     gradients = [[] for _ in range(num_epoch)]
 
     # Lists to store accuracies
@@ -150,8 +148,7 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
 
                     # Update tqdm bar
                     progress_bar.update(1)
-            final_state_dict = copy.deepcopy(client_model.state_dict()) #.copy()
-            # print(final_state_dict)
+            final_state_dict = copy.deepcopy(client_model.state_dict())
             # Iterate over the model's parameters and calculate the difference in gradients
 
             # Calculate the difference in gradients (weights)
@@ -228,6 +225,5 @@ def main():
     plt.savefig(pic_name)  # Saving the plot as an image
     plt.show()
 
-# python main.py --pic_name=pic_train --batch_size=256 --num_clients=5 --delays 1 2 3 4 5
 if __name__ == '__main__':
     main()
