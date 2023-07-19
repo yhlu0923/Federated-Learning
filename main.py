@@ -218,6 +218,11 @@ def main():
     plt.ylabel('Accuracy')
     plt.title('Accuracy in Federated Learning with Delayed Gradients')
     plt.legend()
+
+    # Add information from args to the plot
+    args_info = f'Number of clients: {args.num_clients}\nNumber of epochs: {args.num_epoch}\nBatch size: {args.batch_size}\nDelays: {args.delays}'
+    plt.text(0.7, 0.1, args_info, transform=plt.gca().transAxes, bbox=dict(facecolor='white', alpha=0.5))
+
     current_time = datetime.now().strftime("%Y%m%d%H%M%S")
     pic_name = f"{args.pic_name}-num_client_{args.num_clients}-delay_{args.delays}-{current_time}.png"
     plt.savefig(pic_name)  # Saving the plot as an image
