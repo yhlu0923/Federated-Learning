@@ -99,7 +99,8 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
     # Create the network and optimizer
     # Central model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using GPU during training")
+    if torch.cuda.is_available():
+        print("Using GPU during training")
     net = Net().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer_central_model = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
