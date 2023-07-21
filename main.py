@@ -166,28 +166,42 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
             final_state_dict = copy.deepcopy(client_model.state_dict())
             # Iterate over the model's parameters and calculate the difference in gradients
 
+            # Store all information regarding gradient
+            gradient_info = {}
             # Calculate the difference in gradients (weights)
             gradient_difference = {}
             for name, param in final_state_dict.items():
                 gradient_difference[name] = param - initial_state_dict[name]
+
+            gradient_info['gradient_difference'] = gradient_difference
 
             # Append gradients in to gradient list
             # Experimetal stage: Make only the last client has delay
             delay_num = [0 for _ in range(num_clients)]
             delay_num[0] = delay
 
+            gradient_info['epoch'] = epoch
+            gradient_info['delay'] = delay_num[idx]
+
             target_slot_num = epoch + delay_num[idx]
-            # If the epoch plus delay is out of training stage
+            # If the epoch plus delay is inside of training stage
             if target_slot_num < len(gradients):
-                gradients[target_slot_num].append(gradient_difference)
+                gradients[target_slot_num].append(gradient_info)
 
         # Aggregate the gradients of client models
         # Get the list of gradient difference for this epoch
-        list_gradient_difference = gradients[epoch]
+        gradient_info = gradients[epoch]
+        list_gradient_difference = gradient_info['gradient_difference']
         # Get the base model
         global_state_dict = net.state_dict()
         # Add each gradient_difference to the base model
         # TODO: Play with delay. e.g. the delay gradients will have lower effect
+
+        def reduce_factor(cur_epoch, gradient_info):
+            factor = 1
+            return factor
+            pass
+
         for gradient_difference in list_gradient_difference:
             for name, param in global_state_dict.items():
                 global_state_dict[name] = param + gradient_difference[name] / num_clients
