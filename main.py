@@ -9,6 +9,7 @@ from tqdm import tqdm
 import copy
 import argparse
 from datetime import datetime
+import math
 import torchvision.models as models
 
 # Set random seed for reproducibility
@@ -206,7 +207,8 @@ def simulate_federated_learning(model_name, opt_name, num_clients, delay, num_ep
             # Append gradients in to gradient list
             # Experimetal stage: Make only the last client has delay
             delay_num = [0 for _ in range(num_clients)]
-            delay_num[0] = delay
+            for idx in range(math.ceil(num_clients // 2)):
+                delay_num[idx] = delay
 
             gradient_info['epoch'] = epoch
             gradient_info['delay'] = delay_num[idx]
