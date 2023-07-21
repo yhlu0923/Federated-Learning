@@ -9,6 +9,7 @@ from tqdm import tqdm
 import copy
 import argparse
 from datetime import datetime
+import torchvision.models as models
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
@@ -17,12 +18,22 @@ np.random.seed(42)
 def parse_args():
     parser = argparse.ArgumentParser(description='Simulate federated learning with different delays')
     parser.add_argument('--pic_name', type=str, default='pic_train', help='Name of the picture')
+    parser.add_argument('--model_name', type=str, default='resnet', choices=['resnet', 'small_net'], help='Name of the model')
+    parser.add_argument('--opt_name', type=str, default='sgd', choices=['adam', 'sgd'], help='Name of the optimizer')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--num_clients', type=int, default=5, help='Number of clients')
     parser.add_argument('--num_epoch', type=int, default=25, help='Number of epochs')
     parser.add_argument('--delays', type=int, nargs='+', default=[1, 5], help='List of delays')
     args = parser.parse_args()
     return args
+
+
+def get_resnet():
+    resnet = models.resnet18(pretrained=False)
+    num_ftrs = resnet.fc.in_features
+    resnet.fc = nn.Linear(num_ftrs, 10)  # CIFAR-10 has 10 classes
+
+    return resnet
 
 
 # Define the CIFAR-10 network architecture
@@ -47,10 +58,19 @@ class Net(nn.Module):
 
 
 class Clients:
-    def __init__(self, num_clients, base_model):
+    def __init__(self, num_clients, base_model, opt_name):
+        learning_rate = 0.001
+        momentum = 0.9
+        weight_decay = 1e-4
+
         self.num_clients = num_clients
         self.clients = [copy.deepcopy(base_model) for _ in range(num_clients)]
-        self.optimizers = [optim.SGD(client.parameters(), lr=0.001, momentum=0.9) for client in self.clients]
+        self.optimizers = [
+            optim.SGD(client.parameters(), lr=learning_rate, momentum=momentum) 
+            if opt_name == "sgd" 
+            else optim.Adam(client.parameters(), lr=learning_rate, weight_decay=weight_decay) 
+            for client in self.clients
+        ]
         self.trainloaders = None
 
     def get_client(self, client_index):
@@ -107,7 +127,7 @@ def evaluate_model(net, testloader, device):
     return accuracy
 
 
-def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
+def simulate_federated_learning(model_name, opt_name, num_clients, delay, num_epoch, batch_size):
     trainloaders, testloader = get_data_loaders(num_clients, batch_size)
 
     # Create the network and optimizer
@@ -115,11 +135,19 @@ def simulate_federated_learning(num_clients, delay, num_epoch, batch_size):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
         print("Using GPU during training")
-    net = Net().to(device)
+
+    # Decide model network
+    net = None
+    if model_name == "resnet":
+        net = get_resnet().to(device)
+        print("Using model: resnet")
+    else:
+        net = Net().to(device)
+        print("Using model: Small network")
     criterion = nn.CrossEntropyLoss()
 
     # Create a model and an optimizer for each client
-    clients = Clients(num_clients, net)
+    clients = Clients(num_clients, net, opt_name)
     clients.set_trainloaders(trainloaders)
 
     # Record the gradient difference
@@ -229,7 +257,12 @@ def plot_and_save_img(args, accuracy_all_delays):
     plt.legend()
 
     # Add information from args to the plot
-    args_info = f'Number of clients: {args.num_clients}\nNumber of epochs: {args.num_epoch}\nBatch size: {args.batch_size}\nDelays: {args.delays}'
+    args_info = f'Number of epochs: {args.num_epoch}\n' \
+                f'Model: {args.model_name}\n' \
+                f'Optimizer: {args.opt_name}\n' \
+                f'Number of clients: {args.num_clients}\n' \
+                f'Batch size: {args.batch_size}\n' \
+                f'Delays: {args.delays}'
     plt.text(0.7, 0.1, args_info, transform=plt.gca().transAxes, bbox=dict(facecolor='white', alpha=0.5))
 
     current_time = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -244,7 +277,13 @@ def main():
     # Simulate federated learning with different delays
     accuracy_all_delays = []
     for delay in args.delays:
-        accuracies = simulate_federated_learning(args.num_clients, delay, args.num_epoch, args.batch_size)
+        accuracies = simulate_federated_learning(
+            args.model_name,
+            args.opt_name,
+            args.num_clients, 
+            delay, 
+            args.num_epoch, 
+            args.batch_size)
         accuracy_all_delays.append(accuracies)
 
     plot_and_save_img(args, accuracy_all_delays)
