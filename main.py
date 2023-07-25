@@ -228,13 +228,18 @@ def simulate_federated_learning(model_name, opt_name, num_clients, delay, num_ep
 
         def reduce_factor(cur_epoch, gradient_info):
             factor = 1
+            # if there are delay: the factor should be 1/delay
+            if cur_epoch != gradient_info['epoch']:
+                factor = factor / abs(cur_epoch - gradient_info['epoch'])
+            # if the factor is out of reasonable range, factor = 1
+            if factor > 1 or factor < 0:
+                factor = 1
             return factor
-            pass
 
         for gradient_info in list_gradient_info:
             gradient_difference = gradient_info['gradient_difference']
             for name, param in global_state_dict.items():
-                global_state_dict[name] = param + gradient_difference[name] / num_clients
+                global_state_dict[name] = param + (gradient_difference[name] / num_clients) * reduce_factor(epoch, gradient_info)
 
         # Update the central model
         net.load_state_dict(global_state_dict, strict=False)
